@@ -7,6 +7,7 @@ export default {
     finance: 'Finance',
     demandForecast: 'Demand Forecast',
     reports: 'Reports',
+    restocking: 'Restocking',
     companyName: 'Catalyst Components',
     subtitle: 'Inventory Management System'
   },
@@ -187,6 +188,86 @@ export default {
       trend: 'Trend',
       period: 'Period'
     }
+  },
+
+  // Restocking
+  restocking: {
+    title: 'Restocking',
+    description: 'Set a budget and order what the demand forecast says you will run short of',
+    loadError: 'Failed to load restocking recommendations',
+    budget: 'Budget',
+    budgetHint: 'Up to {max} restocks everything recommended',
+    stats: {
+      selectedItems: 'Items in this order',
+      totalCost: 'Order total',
+      remaining: 'Budget left',
+      leadTime: 'Delivery lead time'
+    },
+    recommendations: 'Recommendations',
+    recommendationsHint: 'Most urgent first: below reorder point, then rising demand',
+    noRecommendations: 'Nothing needs restocking for these filters',
+    table: {
+      item: 'Item',
+      warehouse: 'Warehouse',
+      onHand: 'On hand / reorder point',
+      forecast: 'Forecast (30 days)',
+      recommended: 'Recommended',
+      inOrder: 'In this order',
+      unitCost: 'Unit cost',
+      cost: 'Cost',
+      leadTime: 'Lead time'
+    },
+    fit: {
+      full: 'In budget',
+      partial: 'Partly',
+      none: 'Over budget'
+    },
+    belowReorder: 'Below reorder point',
+    placeOrder: 'Place Order',
+    placing: 'Placing order...',
+    placed: 'Order {number} submitted: {count} items, arriving in {days} days',
+    viewInOrders: 'See it in Orders',
+    placeError: 'Could not place the order',
+    days: '{count} days'
+  },
+
+  // Submitted restocking orders, shown on the Orders tab
+  submittedOrders: {
+    title: 'Submitted Orders',
+    empty: 'No restocking orders yet. Place one from the Restocking tab.',
+    table: {
+      orderNumber: 'Order Number',
+      submitted: 'Submitted',
+      items: 'Items',
+      totalCost: 'Total Cost',
+      leadTime: 'Lead Time',
+      expectedDelivery: 'Expected Delivery',
+      status: 'Status'
+    },
+    status: {
+      Submitted: 'Submitted'
+    }
+  },
+
+  // Purchase orders raised for a backlog item
+  purchaseOrder: {
+    create: 'Create PO',
+    view: 'View PO',
+    createTitle: 'Create Purchase Order',
+    viewTitle: 'Purchase Order',
+    supplier: 'Supplier',
+    quantity: 'Quantity',
+    unitCost: 'Unit cost',
+    expectedDelivery: 'Expected delivery',
+    notes: 'Notes',
+    total: 'Total',
+    status: 'Status',
+    created: 'Created',
+    submit: 'Create Purchase Order',
+    saving: 'Saving...',
+    error: 'Could not save the purchase order',
+    loadError: 'Could not load the purchase order',
+    required: 'Fill in the supplier, a quantity above 0 and the delivery date'
   },
 
   // Reports
