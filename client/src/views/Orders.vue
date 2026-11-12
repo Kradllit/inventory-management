@@ -27,6 +27,50 @@
         </div>
       </div>
 
+      <!-- Restocking orders placed from the Restocking tab -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">{{ t('submittedOrders.title') }} ({{ submittedOrders.length }})</h3>
+        </div>
+        <div v-if="submittedOrders.length === 0" class="submitted-empty">
+          {{ t('submittedOrders.empty') }}
+        </div>
+        <div v-else class="table-container">
+          <table class="orders-table">
+            <thead>
+              <tr>
+                <th class="col-order-number">{{ t('submittedOrders.table.orderNumber') }}</th>
+                <th class="col-date">{{ t('submittedOrders.table.submitted') }}</th>
+                <th class="col-items">{{ t('submittedOrders.table.items') }}</th>
+                <th class="col-value">{{ t('submittedOrders.table.totalCost') }}</th>
+                <th class="col-status">{{ t('submittedOrders.table.leadTime') }}</th>
+                <th class="col-date">{{ t('submittedOrders.table.expectedDelivery') }}</th>
+                <th class="col-status">{{ t('submittedOrders.table.status') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="order in submittedOrders" :key="order.id">
+                <td><strong>{{ order.order_number }}</strong></td>
+                <td>{{ formatDate(order.submitted_date) }}</td>
+                <td>
+                  <!-- A plain list: the table's scroll container would clip a dropdown on a short table -->
+                  <ul class="submitted-items">
+                    <li v-for="item in order.items" :key="item.sku">
+                      <span class="item-name">{{ translateProductName(item.name) }}</span>
+                      <span class="item-meta"> × {{ item.quantity }}</span>
+                    </li>
+                  </ul>
+                </td>
+                <td><strong>{{ formatMoney(order.total_cost, 2) }}</strong></td>
+                <td>{{ t('restocking.days', { count: order.lead_time_days }) }}</td>
+                <td>{{ formatDate(order.expected_delivery) }}</td>
+                <td><span class="badge info">{{ t(`submittedOrders.status.${order.status}`) }}</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <div class="card">
         <div class="card-header">
           <h3 class="card-title">{{ t('orders.allOrders') }} ({{ orders.length }})</h3>
@@ -83,6 +127,7 @@ import { ref, onMounted, watch, computed } from 'vue'
 import { api } from '../api'
 import { useFilters } from '../composables/useFilters'
 import { useI18n } from '../composables/useI18n'
+import { formatCurrencyWithDecimals } from '../utils/currency'
 
 export default {
   name: 'Orders',
@@ -95,6 +140,7 @@ export default {
     const loading = ref(true)
     const error = ref(null)
     const orders = ref([])
+    const submittedOrders = ref([])
 
     // Use shared filters
     const {
@@ -109,7 +155,12 @@ export default {
       try {
         loading.value = true
         const filters = getCurrentFilters()
-        const fetchedOrders = await api.getOrders(filters)
+        // Restocking orders are our own purchases, not customer orders, so the filters don't apply
+        const [fetchedOrders, fetchedSubmitted] = await Promise.all([
+          api.getOrders(filters),
+          api.getRestockOrders()
+        ])
+        submittedOrders.value = fetchedSubmitted
 
         // Sort orders by order_date (earliest first)
         orders.value = fetchedOrders.sort((a, b) => {
@@ -153,6 +204,9 @@ export default {
       })
     }
 
+    const formatMoney = (amount, decimals = 0) =>
+      formatCurrencyWithDecimals(amount, currentCurrency.value, decimals)
+
     onMounted(loadOrders)
 
     return {
@@ -160,6 +214,8 @@ export default {
       loading,
       error,
       orders,
+      submittedOrders,
+      formatMoney,
       getOrdersByStatus,
       getOrderStatusClass,
       formatDate,
@@ -176,6 +232,21 @@ export default {
 .orders-table {
   table-layout: fixed;
   width: 100%;
+}
+
+.submitted-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.submitted-empty {
+  padding: 2rem;
+  text-align: center;
+  color: #64748b;
 }
 
 /* Column widths */

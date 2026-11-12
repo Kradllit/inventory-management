@@ -1,8 +1,9 @@
+from datetime import datetime, timedelta
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional
-from pydantic import BaseModel
-from mock_data import inventory_items, orders, demand_forecasts, backlog_items, spending_summary, monthly_spending, category_spending, recent_transactions, purchase_orders
+from pydantic import BaseModel, Field
+from mock_data import inventory_items, orders, demand_forecasts, backlog_items, spending_summary, monthly_spending, category_spending, recent_transactions, purchase_orders, restock_orders
 
 app = FastAPI(title="Factory Inventory Management System")
 
@@ -100,6 +101,7 @@ class BacklogItem(BaseModel):
     days_delayed: int
     priority: str
     has_purchase_order: Optional[bool] = False
+    purchase_order_id: Optional[str] = None
 
 class PurchaseOrder(BaseModel):
     id: str
@@ -119,6 +121,79 @@ class CreatePurchaseOrderRequest(BaseModel):
     unit_cost: float
     expected_delivery_date: str
     notes: Optional[str] = None
+
+
+class RestockOrderLine(BaseModel):
+    sku: str
+    quantity: int = Field(gt=0)
+
+class CreateRestockOrderRequest(BaseModel):
+    items: List[RestockOrderLine] = Field(min_length=1)
+    # When given, the server refuses an order that costs more than this
+    budget: Optional[float] = Field(default=None, ge=0)
+
+# Supplier lead time in days by category, used for restocking orders
+LEAD_TIME_DAYS = {
+    'circuit boards': 10,
+    'sensors': 7,
+    'actuators': 14,
+    'controllers': 12,
+    'power supplies': 8,
+}
+DEFAULT_LEAD_TIME_DAYS = 10
+
+def lead_time_for(item: dict) -> int:
+    return LEAD_TIME_DAYS.get(item.get('category', '').lower(), DEFAULT_LEAD_TIME_DAYS)
+
+def restock_candidates(warehouse: Optional[str] = None, category: Optional[str] = None) -> list:
+    """Inventory items with a demand forecast that need stock, most urgent first.
+
+    Target stock is the reorder point plus the next period's forecasted demand, so an
+    order covers the coming demand and still leaves the item above its reorder point.
+    Units already on order from earlier restocking orders count as stock, so placing
+    an order shrinks the next recommendation instead of suggesting the same order twice.
+    """
+    forecasts = {f['item_sku']: f for f in demand_forecasts}
+    on_order = {}
+    for order in restock_orders:
+        for line in order['items']:
+            on_order[line['sku']] = on_order.get(line['sku'], 0) + line['quantity']
+    candidates = []
+    for item in apply_filters(inventory_items, warehouse, category):
+        forecast = forecasts.get(item['sku'])
+        if not forecast:
+            continue
+        incoming = on_order.get(item['sku'], 0)
+        needed = item['reorder_point'] + forecast['forecasted_demand'] - item['quantity_on_hand'] - incoming
+        if needed <= 0:
+            continue
+        candidates.append({
+            'sku': item['sku'],
+            'name': item['name'],
+            'category': item['category'],
+            'warehouse': item['warehouse'],
+            'quantity_on_hand': item['quantity_on_hand'],
+            'reorder_point': item['reorder_point'],
+            'on_order': incoming,
+            'current_demand': forecast['current_demand'],
+            'forecasted_demand': forecast['forecasted_demand'],
+            'trend': forecast['trend'],
+            'below_reorder_point': item['quantity_on_hand'] <= item['reorder_point'],
+            'unit_cost': item['unit_cost'],
+            'recommended_quantity': needed,
+            'recommended_cost': round(needed * item['unit_cost'], 2),
+            'lead_time_days': lead_time_for(item),
+        })
+
+    # Most urgent first: already below the reorder point, then rising demand,
+    # then the biggest gap relative to the reorder point.
+    trend_rank = {'increasing': 0, 'stable': 1, 'decreasing': 2}
+    candidates.sort(key=lambda c: (
+        not c['below_reorder_point'],
+        trend_rank.get(c['trend'], 1),
+        -c['recommended_quantity'] / max(c['reorder_point'], 1),
+    ))
+    return candidates
 
 # API endpoints
 @app.get("/")
@@ -174,8 +249,10 @@ def get_backlog():
     for item in backlog_items:
         item_dict = dict(item)
         # Check if this backlog item has a purchase order
-        has_po = any(po["backlog_item_id"] == item["id"] for po in purchase_orders)
-        item_dict["has_purchase_order"] = has_po
+        po = next((po for po in purchase_orders if po["backlog_item_id"] == item["id"]), None)
+        item_dict["has_purchase_order"] = po is not None
+        # The dashboard switches its "Create PO" button to "View PO" on this id
+        item_dict["purchase_order_id"] = po["id"] if po else None
         result.append(item_dict)
     return result
 
@@ -313,6 +390,118 @@ def get_monthly_trends(
     result = list(months.values())
     result.sort(key=lambda x: x['month'])
     return result
+
+@app.post("/api/purchase-orders", response_model=PurchaseOrder, status_code=201)
+def create_purchase_order(request: CreatePurchaseOrderRequest):
+    """Create a purchase order for a backlog item (one per item)"""
+    if not any(b["id"] == request.backlog_item_id for b in backlog_items):
+        raise HTTPException(status_code=404, detail="Backlog item not found")
+    if any(po["backlog_item_id"] == request.backlog_item_id for po in purchase_orders):
+        raise HTTPException(status_code=409, detail="This backlog item already has a purchase order")
+    if request.quantity <= 0 or request.unit_cost < 0:
+        raise HTTPException(status_code=422, detail="Quantity must be positive and unit cost not negative")
+
+    po = {
+        "id": f"PO-{len(purchase_orders) + 1:04d}",
+        **request.model_dump(),
+        "status": "Pending",
+        "created_date": datetime.now().isoformat(timespec="seconds"),
+    }
+    purchase_orders.append(po)
+    return po
+
+@app.get("/api/purchase-orders/{backlog_item_id}", response_model=PurchaseOrder)
+def get_purchase_order_by_backlog_item(backlog_item_id: str):
+    """Get the purchase order raised for a backlog item"""
+    po = next((po for po in purchase_orders if po["backlog_item_id"] == backlog_item_id), None)
+    if po is None:
+        raise HTTPException(status_code=404, detail="No purchase order for this backlog item")
+    return po
+
+@app.get("/api/restocking/recommendations")
+def get_restock_recommendations(
+    budget: Optional[float] = None,
+    warehouse: Optional[str] = None,
+    category: Optional[str] = None
+):
+    """Recommend what to restock within a budget, using the demand forecast.
+
+    Items are taken in priority order. Each gets its full recommended quantity if it
+    fits, otherwise as many units as the remaining budget buys, and whatever is left
+    goes to the next item the same way. Without a budget, everything is included.
+    """
+    candidates = restock_candidates(warehouse, category)
+    max_budget = round(sum(c['recommended_cost'] for c in candidates), 2)
+    if budget is None:
+        budget = max_budget
+    if budget < 0:
+        raise HTTPException(status_code=422, detail="Budget cannot be negative")
+
+    remaining = budget
+    items = []
+    for c in candidates:
+        affordable = int(remaining // c['unit_cost']) if c['unit_cost'] > 0 else c['recommended_quantity']
+        quantity = min(c['recommended_quantity'], affordable)
+        cost = round(quantity * c['unit_cost'], 2)
+        remaining -= cost
+        items.append({**c, 'quantity': quantity, 'cost': cost})
+
+    selected = [i for i in items if i['quantity'] > 0]
+    total = round(sum(i['cost'] for i in selected), 2)
+    return {
+        'budget': budget,
+        'max_budget': max_budget,
+        'total_cost': total,
+        'remaining_budget': round(budget - total, 2),
+        'selected_count': len(selected),
+        'lead_time_days': max((i['lead_time_days'] for i in selected), default=0),
+        'items': items,
+    }
+
+@app.get("/api/restocking/orders")
+def get_restock_orders():
+    """Restocking orders placed from the Restocking tab, newest first"""
+    return list(reversed(restock_orders))
+
+@app.post("/api/restocking/orders", status_code=201)
+def create_restock_order(request: CreateRestockOrderRequest):
+    """Place a restocking order. Prices come from inventory, never from the client."""
+    by_sku = {item['sku']: item for item in inventory_items}
+    lines = []
+    for line in request.items:
+        item = by_sku.get(line.sku)
+        if item is None:
+            raise HTTPException(status_code=404, detail=f"Unknown SKU: {line.sku}")
+        lines.append({
+            'sku': item['sku'],
+            'name': item['name'],
+            'category': item['category'],
+            'warehouse': item['warehouse'],
+            'quantity': line.quantity,
+            'unit_cost': item['unit_cost'],
+            'line_total': round(line.quantity * item['unit_cost'], 2),
+            'lead_time_days': lead_time_for(item),
+        })
+
+    total = round(sum(l['line_total'] for l in lines), 2)
+    if request.budget is not None and total > request.budget + 0.005:
+        raise HTTPException(status_code=422, detail="Order total is over the budget")
+
+    # The order arrives when its slowest line does
+    lead_time = max(l['lead_time_days'] for l in lines)
+    submitted = datetime.now()
+    order = {
+        'id': str(len(restock_orders) + 1),
+        'order_number': f"RST-{submitted.year}-{len(restock_orders) + 1:04d}",
+        'status': 'Submitted',
+        'submitted_date': submitted.isoformat(timespec='seconds'),
+        'lead_time_days': lead_time,
+        'expected_delivery': (submitted + timedelta(days=lead_time)).isoformat(timespec='seconds'),
+        'total_cost': total,
+        'items': lines,
+    }
+    restock_orders.append(order)
+    return order
 
 if __name__ == "__main__":
     import uvicorn

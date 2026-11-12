@@ -7,6 +7,7 @@ export default {
     finance: '財務',
     demandForecast: '需要予測',
     reports: 'レポート',
+    restocking: '補充発注',
     companyName: '触媒コンポーネンツ',
     subtitle: '在庫管理システム'
   },
@@ -187,6 +188,86 @@ export default {
       trend: 'トレンド',
       period: '期間'
     }
+  },
+
+  // Restocking
+  restocking: {
+    title: '補充発注',
+    description: '予算を設定し、需要予測で不足する品目を発注',
+    loadError: '補充の推奨を読み込めませんでした',
+    budget: '予算',
+    budgetHint: '{max}で推奨品目をすべて補充できます',
+    stats: {
+      selectedItems: 'この発注の品目数',
+      totalCost: '発注合計',
+      remaining: '残りの予算',
+      leadTime: '納品リードタイム'
+    },
+    recommendations: '推奨品目',
+    recommendationsHint: '緊急度順：発注点割れ、次に需要増加',
+    noRecommendations: 'この条件で補充が必要な品目はありません',
+    table: {
+      item: '品目',
+      warehouse: '倉庫',
+      onHand: '在庫 / 発注点',
+      forecast: '予測（30日）',
+      recommended: '推奨数量',
+      inOrder: '発注数量',
+      unitCost: '単価',
+      cost: '金額',
+      leadTime: 'リードタイム'
+    },
+    fit: {
+      full: '予算内',
+      partial: '一部',
+      none: '予算超過'
+    },
+    belowReorder: '発注点割れ',
+    placeOrder: '発注する',
+    placing: '発注中...',
+    placed: '発注 {number} を送信しました：{count}品目、{days}日後に到着予定',
+    viewInOrders: '注文で確認',
+    placeError: '発注できませんでした',
+    days: '{count}日'
+  },
+
+  // Submitted restocking orders, shown on the Orders tab
+  submittedOrders: {
+    title: '送信済みの発注',
+    empty: '補充発注はまだありません。補充発注タブから発注してください。',
+    table: {
+      orderNumber: '発注番号',
+      submitted: '送信日',
+      items: '品目',
+      totalCost: '合計金額',
+      leadTime: 'リードタイム',
+      expectedDelivery: '到着予定日',
+      status: 'ステータス'
+    },
+    status: {
+      Submitted: '送信済み'
+    }
+  },
+
+  // Purchase orders raised for a backlog item
+  purchaseOrder: {
+    create: '発注書作成',
+    view: '発注書を見る',
+    createTitle: '発注書の作成',
+    viewTitle: '発注書',
+    supplier: '仕入先',
+    quantity: '数量',
+    unitCost: '単価',
+    expectedDelivery: '到着予定日',
+    notes: '備考',
+    total: '合計',
+    status: 'ステータス',
+    created: '作成日',
+    submit: '発注書を作成',
+    saving: '保存中...',
+    error: '発注書を保存できませんでした',
+    loadError: '発注書を読み込めませんでした',
+    required: '仕入先、1以上の数量、到着予定日を入力してください'
   },
 
   // Reports

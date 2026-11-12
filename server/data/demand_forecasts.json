@@ -79,5 +79,95 @@
     "forecasted_demand": 96,
     "trend": "stable",
     "period": "Next 30 days"
+  },
+  {
+    "id": "10",
+    "item_sku": "TMP-201",
+    "item_name": "Temperature Sensor Module",
+    "current_demand": 140,
+    "forecasted_demand": 168,
+    "trend": "increasing",
+    "period": "Next 30 days"
+  },
+  {
+    "id": "11",
+    "item_sku": "SRV-301",
+    "item_name": "Micro Servo Motor",
+    "current_demand": 40,
+    "forecasted_demand": 52,
+    "trend": "increasing",
+    "period": "Next 30 days"
+  },
+  {
+    "id": "12",
+    "item_sku": "SRV-302",
+    "item_name": "Standard Servo Motor",
+    "current_demand": 60,
+    "forecasted_demand": 61,
+    "trend": "stable",
+    "period": "Next 30 days"
+  },
+  {
+    "id": "13",
+    "item_sku": "PSU-508",
+    "item_name": "Battery Backup Power Supply",
+    "current_demand": 90,
+    "forecasted_demand": 120,
+    "trend": "increasing",
+    "period": "Next 30 days"
+  },
+  {
+    "id": "14",
+    "item_sku": "STP-304",
+    "item_name": "Stepper Motor NEMA 23",
+    "current_demand": 45,
+    "forecasted_demand": 54,
+    "trend": "increasing",
+    "period": "Next 30 days"
+  },
+  {
+    "id": "15",
+    "item_sku": "HMD-202",
+    "item_name": "Humidity Sensor Module",
+    "current_demand": 70,
+    "forecasted_demand": 71,
+    "trend": "stable",
+    "period": "Next 30 days"
+  },
+  {
+    "id": "16",
+    "item_sku": "ACC-206",
+    "item_name": "3-Axis Accelerometer",
+    "current_demand": 110,
+    "forecasted_demand": 140,
+    "trend": "increasing",
+    "period": "Next 30 days"
+  },
+  {
+    "id": "17",
+    "item_sku": "PSU-505",
+    "item_name": "48V DC Power Supply Unit",
+    "current_demand": 100,
+    "forecasted_demand": 85,
+    "trend": "decreasing",
+    "period": "Next 30 days"
+  },
+  {
+    "id": "18",
+    "item_sku": "PSU-507",
+    "item_name": "Adjustable Bench Power Supply",
+    "current_demand": 60,
+    "forecasted_demand": 61,
+    "trend": "stable",
+    "period": "Next 30 days"
+  },
+  {
+    "id": "19",
+    "item_sku": "GYR-207",
+    "item_name": "Gyroscope Module",
+    "current_demand": 90,
+    "forecasted_demand": 115,
+    "trend": "increasing",
+    "period": "Next 30 days"
   }
 ]
